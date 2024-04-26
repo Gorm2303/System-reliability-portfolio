@@ -35,6 +35,11 @@ bin_edges = np.linspace(column7_min, column7_max, num=6)  # Create 5 bins
 # Categorize the sequences using these bins
 binned_sequences = [np.digitize(seq, bins=bin_edges) for seq in sequences]
 
+# Save the binned sequences to a CSV file
+binned_data = pd.DataFrame(binned_sequences).transpose()
+binned_data.columns = [f'Sequence {i+1}' for i in range(num_sequences)]
+binned_data.to_csv('./Data/PHM_Binned_Sequences.csv', index=False)
+
 # Plot the discretized sequences with bins
 plt.figure(figsize=(12, 6))
 for i, seq in enumerate(binned_sequences):
