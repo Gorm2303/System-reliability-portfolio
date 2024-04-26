@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 # Load the dataset
-file_path = './data/OfficeIndoorClimate.csv'
+file_path = './Data/1. OfficeIndoorClimate.csv'
 data = pd.read_csv(file_path)
 
 # Extract the 'ki [C]' column
