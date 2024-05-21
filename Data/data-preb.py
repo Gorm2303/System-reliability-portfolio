@@ -16,7 +16,7 @@ data_array = df.to_numpy()
 print(str(data_array) + "\n -----------------")
 
 # Split the array into 5 parts
-arrays = np.array_split(data_array, 4)
+arrays = np.array_split(data_array, 10)
 
 # Find the overall min and max values to determine universal quartile ranges
 overall_min = np.min(data_array)
@@ -28,8 +28,9 @@ print ("Universal quartiles: " + str(universal_quartiles) + "\n ----------------
 
 # Plotting the data
 def continuous_plot():
-    colors = ['red', 'green', 'blue', 'purple']  # Define colors for each part
-    labels = ['Part 1', 'Part 2', 'Part 3', 'Part 4']  # Labels for the legend
+    labels = []
+    for i in range(len(arrays)):
+        labels.append(f'Part {i+1}')
 
     # Initialize a figure and axis for plotting
     fig, ax = plt.subplots()
@@ -43,7 +44,7 @@ def continuous_plot():
         # Assuming column index 0 is what you want to plot
         y = arr[:, 0] if arr.ndim > 1 else arr  # Adjust based on your data structure
         
-        ax.plot(x, y, label=labels[i], color=colors[i])
+        ax.plot(x, y, label=labels[i])
 
     # Add legend to the plot
     ax.legend()
@@ -59,9 +60,14 @@ def continuous_plot():
 
 def discrete_plot():
     # Prepare the plot
-    fig, axes = plt.subplots(nrows=4, ncols=1, figsize=(10, 20), sharex=True)
-    colors = ['red', 'green', 'blue', 'purple', 'orange']
-    labels = ["6.00°C-14.17°C","14.17°C-22.35°C", "22.35°C-30.53°C", "30.53°C-38.71°C"]
+    n_arrays = len(arrays)
+    fig, axes = plt.subplots(nrows=n_arrays, ncols=1, figsize=(10, 5 * n_arrays), sharex=True)
+    
+    if n_arrays == 1:
+        axes = [axes]  # Make axes iterable if there's only one plot
+
+    # Generate labels based on universal quartiles
+    labels = [f'{universal_quartiles[i]:.2f}°C-{universal_quartiles[i+1]:.2f}°C' for i in range(len(universal_quartiles) - 1)]
 
     for i, arr in enumerate(arrays):
         # Flatten the array to remove extra dimensions
@@ -72,10 +78,10 @@ def discrete_plot():
         frequency = data_binned.value_counts().sort_index()
 
         # Plot each sub-array
-        axes[i].bar(frequency.index, frequency.values, color=colors[i])
+        axes[i].bar(frequency.index, frequency.values)
         axes[i].set_title(f'Part {i+1}')
         axes[i].set_ylabel('Frequency')
-        if i == 4:
+        if i == n_arrays - 1:
             axes[i].set_xlabel('Quartile Range')
 
     plt.tight_layout()
@@ -111,7 +117,7 @@ def bar_plot():
     fig, ax = plt.subplots(figsize=(10, 6))
 
     # Plot each part's frequency distribution
-    for i in range(4):
+    for i in range(len(arrays)):
         frequencies = frequency_counts[i]  # Retrieve frequency counts for part i
         # Ensure the frequencies are in the correct order
         ordered_frequencies = [frequencies[label] if label in frequencies else 0 for label in labels]
