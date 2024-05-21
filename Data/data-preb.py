@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from hmmlearn import hmm
 
 
 #df = pd.read_csv('1. OfficeIndoorClimate.csv', delimiter=',', header=0, index_col=None, usecols=[1], dtype={'Column1': float})
@@ -41,9 +42,53 @@ def main():
     universal_quartiles = np.linspace(overall_min, overall_max, 5)
     print("Universal quartiles: " + str(universal_quartiles) + "\n -----------------") 
 
-    continuous_plot()
-    discrete_plot()
-    bar_plot()
+    #continuous_plot()
+    #discrete_plot()
+    #bar_plot()
+
+    create_hmm()
+
+def create_hmm():
+    discretized_sequences, labels = discretize_data(arrays, universal_quartiles)
+
+    # Combine sequences into a single sequence for HMM training
+    concatenated_sequences = np.concatenate(discretized_sequences).reshape(-1, 1)
+    
+    # Train HMM
+    for _ in range(2):
+        model = hmm.CategoricalHMM(n_components=3, n_iter=1000)
+        model.fit(concatenated_sequences)
+
+        # Print model parameters
+        print_model_parameters(model)
+
+
+def discretize_data(arrays, universal_quartiles):
+    labels = [f'{universal_quartiles[i]:.2f}-{universal_quartiles[i+1]:.2f}' for i in range(len(universal_quartiles) - 1)]
+    discretized_sequences = []
+
+    for arr in arrays:
+        flattened_array = arr.flatten()
+        data_binned = pd.cut(flattened_array, bins=universal_quartiles, labels=range(len(labels)), include_lowest=True)
+        discretized_sequences.append(data_binned.to_numpy())
+
+    return discretized_sequences, labels
+
+
+def print_model_parameters(model):
+    np.set_printoptions(suppress=True, formatter={'float_kind': '{:0.4f}'.format})
+
+    initial_state_distribution = model.startprob_
+    transition_matrix = model.transmat_
+    emission_matrix = model.emissionprob_
+
+    print("Initial state distribution (pi):\n", initial_state_distribution)
+    print("Transition matrix (A):\n", transition_matrix)
+    print("Emission matrix (B):\n", emission_matrix)
+    print("-----------------")
+
+    np.set_printoptions(suppress=False)
+
 
 def extract_data(column, column_name):
     # Read the first 1000 lines of the CSV file, focusing on columns 2 and 7
@@ -121,17 +166,9 @@ def continuous_plot():
     # Show the plot
     plt.show()
 
-
-def discrete_plot():
-    # Prepare the plot
-    n_arrays = len(arrays)
-    fig, axes = plt.subplots(nrows=n_arrays, ncols=1, figsize=(10, 5 * n_arrays), sharex=True)
-    
-    if n_arrays == 1:
-        axes = [axes]  # Make axes iterable if there's only one plot
-
-    # Generate labels based on universal quartiles
-    labels = [f'{universal_quartiles[i]:.2f}°C-{universal_quartiles[i+1]:.2f}°C' for i in range(len(universal_quartiles) - 1)]
+def discretize_data_plot(arrays, universal_quartiles):
+    frequency_counts = {}
+    labels = [f'{universal_quartiles[i]:.2f}-{universal_quartiles[i+1]:.2f}' for i in range(len(universal_quartiles) - 1)]
 
     for i, arr in enumerate(arrays):
         # Flatten the array to remove extra dimensions
@@ -139,7 +176,22 @@ def discrete_plot():
         # Create bins for the percentile ranges using the universal quartiles
         data_binned = pd.cut(flattened_array, bins=universal_quartiles, labels=labels, include_lowest=True)
         # Calculate the frequency of data points in each bin
-        frequency = data_binned.value_counts().sort_index()
+        frequency_counts[i] = data_binned.value_counts().sort_index()
+
+    return frequency_counts, labels
+
+def discrete_plot():
+    global arrays, universal_quartiles
+    frequency_counts, labels = discretize_data_plot(arrays, universal_quartiles)
+    
+    n_arrays = len(arrays)
+    fig, axes = plt.subplots(nrows=n_arrays, ncols=1, figsize=(10, 5 * n_arrays), sharex=True)
+
+    if n_arrays == 1:
+        axes = [axes]  # Make axes iterable if there's only one plot
+
+    for i, arr in enumerate(arrays):
+        frequency = frequency_counts[i]
 
         # Plot each sub-array
         axes[i].bar(frequency.index, frequency.values)
@@ -151,36 +203,16 @@ def discrete_plot():
     plt.tight_layout()
     plt.show()
 
-
 def bar_plot():
-    # Initialize the dictionary
-    frequency_counts = {}
-    # Labels for the quartiles
-    #labels = ["0-25%", "25-50%", "50-75%", "75-100%"]
-    labels = ["6.00°C-14.17°C","14.17°C-22.35°C", "22.35°C-30.53°C", "30.53°C-38.71°C"]
+    global arrays, universal_quartiles
+    frequency_counts, labels = discretize_data_plot(arrays, universal_quartiles)
+    
     n_groups = len(labels)  # Number of groups (quartiles)
     index = np.arange(n_groups)  # Group positions
     bar_width = 0.15  # Width of the bars for each part
 
-    # Calculate and store frequency counts for each part
-    for i, arr in enumerate(arrays):
-        # Flatten the array (if it has more than one dimension) and categorize data into bins
-        flattened_array = arr.flatten()
-        categories = pd.cut(flattened_array, bins=universal_quartiles, labels=labels, include_lowest=True)
-        
-        # Count the frequency of each category
-        frequency_counts[i] = categories.value_counts().sort_index()
-
-    # Display what we have in the dictionary
-    for part, counts in frequency_counts.items():
-        print(f"Part {part + 1}:")
-        print(counts)
-        print()  # This adds an empty line for better readability
-
-    # Create a figure and an axis
     fig, ax = plt.subplots(figsize=(10, 6))
 
-    # Plot each part's frequency distribution
     for i in range(len(arrays)):
         frequencies = frequency_counts[i]  # Retrieve frequency counts for part i
         # Ensure the frequencies are in the correct order
@@ -198,7 +230,6 @@ def bar_plot():
 
     # Show the plot
     plt.show()
-
 
 if __name__ == "__main__":
     main()
