@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from hmmlearn import hmm
+import joblib
 
 
 #df = pd.read_csv('1. OfficeIndoorClimate.csv', delimiter=',', header=0, index_col=None, usecols=[1], dtype={'Column1': float})
@@ -12,10 +13,11 @@ from hmmlearn import hmm
 data_array = []
 arrays = []
 universal_quartiles = []
+test_arrays = []
 
 
 def main():
-    global data_array, arrays, universal_quartiles
+    global data_array, arrays, universal_quartiles, test_arrays
 
     df = extract_data(6, 'Column7')
 
@@ -32,7 +34,11 @@ def main():
     amount_of_arrays = 6
 
     for i in range(amount_of_arrays, len(arrays)):
-        arrays.pop()
+        array = arrays.pop()
+        test_arrays.append(array)
+
+    test_arrays = np.array(test_arrays)
+
 
     # Find the overall min and max values to determine universal quartile ranges
     overall_min = np.min(data_array)
@@ -46,7 +52,10 @@ def main():
     #discrete_plot()
     #bar_plot()
 
-    create_hmm()
+    #model = create_hmm()
+    model = load_model()
+    hmm_predict(model, test_arrays)
+    save_model(model)
 
 def create_hmm():
     discretized_sequences, labels = discretize_data(arrays, universal_quartiles)
@@ -61,6 +70,34 @@ def create_hmm():
 
         # Print model parameters
         print_model_parameters(model)
+    return model
+
+def save_model(model, filename='hmm_model.pkl'):
+    joblib.dump(model, filename)
+    print(f"Model saved to {filename}")
+
+def load_model(filename='hmm_model.pkl'):
+    model = joblib.load(filename)
+    print(f"Model loaded from {filename}")
+    return model
+
+
+def hmm_predict(model, test_arrays):
+    # Discretize the test arrays
+    new_discretized_sequence, _ = discretize_data([test_arrays], universal_quartiles)
+    new_concatenated_sequence = np.concatenate(new_discretized_sequence).reshape(-1, 1)
+    
+    # Predict the hidden states for the new sequence
+    predicted_states = model.predict(new_concatenated_sequence)
+
+    np.set_printoptions(threshold=np.inf)
+
+    
+    # Print detailed information
+    print("Discrete test arrays:")
+    print(new_discretized_sequence)
+    print("\nPredicted states for the new sequence:")
+    print(predicted_states)
 
 
 def discretize_data(arrays, universal_quartiles):
