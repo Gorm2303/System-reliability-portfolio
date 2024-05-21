@@ -5,26 +5,90 @@ import matplotlib.pyplot as plt
 
 #df = pd.read_csv('1. OfficeIndoorClimate.csv', delimiter=',', header=0, index_col=None, usecols=[1], dtype={'Column1': float})
 #df = pd.read_csv('2. PHMdataChallange.csv', delimiter=';', decimal=',', header=0, index_col=None, usecols=[8], dtype={'Column8': float})
-df = pd.read_csv('3. DailyDelhiClimate.csv', delimiter=',', header=0, index_col=None, usecols=[1], dtype={'Column1': float})
+#df = pd.read_csv('3. DailyDelhiClimate.csv', delimiter=',', header=0, index_col=None, usecols=[1], dtype={'Column1': float})
 
 
-# This will display the first few rows of the DataFrame to check it's loaded correctly
-print(str(df.head()) + "\n -----------------")
+data_array = []
+arrays = []
+universal_quartiles = []
 
-# Convert the entire DataFrame to a NumPy array
-data_array = df.to_numpy()
-print(str(data_array) + "\n -----------------")
 
-# Split the array into 5 parts
-arrays = np.array_split(data_array, 10)
+def main():
+    global data_array, arrays, universal_quartiles
 
-# Find the overall min and max values to determine universal quartile ranges
-overall_min = np.min(data_array)
-overall_max = np.max(data_array)
+    df = extract_data(6, 'Column7')
 
-# Determine the universal quartiles
-universal_quartiles = np.linspace(overall_min, overall_max, 5)
-print ("Universal quartiles: " + str(universal_quartiles) + "\n -----------------")
+    # This will display the first few rows of the DataFrame to check it's loaded correctly
+    print(str(df.head()) + "\n -----------------")
+
+    # Convert the entire DataFrame to a NumPy array
+    data_array = df.to_numpy()
+    print(str(data_array) + "\n -----------------")
+
+    # Split the array into 10 parts
+    arrays = np.array_split(data_array, len(data_array)/150)
+
+    amount_of_arrays = 6
+
+    for i in range(amount_of_arrays, len(arrays)):
+        arrays.pop()
+
+    # Find the overall min and max values to determine universal quartile ranges
+    overall_min = np.min(data_array)
+    overall_max = np.max(data_array)
+
+    # Determine the universal quartiles
+    universal_quartiles = np.linspace(overall_min, overall_max, 5)
+    print("Universal quartiles: " + str(universal_quartiles) + "\n -----------------") 
+
+    continuous_plot()
+    discrete_plot()
+    bar_plot()
+
+def extract_data(column, column_name):
+    # Read the first 1000 lines of the CSV file, focusing on columns 2 and 7
+    file_path = '2. PHMdataChallange.csv'
+    df = pd.read_csv(file_path, delimiter=';', decimal=',', nrows=10000, usecols=[1, column], header=0, names=['Column2', column_name], dtype={'Column2': int, column_name: float})
+
+    # Extract columns of interest
+    col2 = df.iloc[:, 0]  # Column 2 (usecols=[1] means it's now the first column in df)
+    col7 = df.iloc[:, 1]  # Column 7 (usecols=[6] means it's now the second column in df)
+
+    # Initialize variables to store sequences
+    sequences = []
+    current_sequence = []
+    current_values_col7 = []
+
+    # Process the columns to identify sequences
+    for i in range(len(col2)):
+        if col2[i] == 1:
+            # If we are starting a new sequence, save the previous one if it exists
+            if len(current_sequence) == 150:
+                sequence_df = pd.DataFrame(current_values_col7, columns=[column_name])
+                sequences.append(sequence_df)
+            # Reset for the new sequence
+            current_sequence = [col2[i]]
+            current_values_col7 = [col7[i]]
+        elif len(current_sequence) > 0 and col2[i] == current_sequence[-1] + 1:
+            # Continue the sequence if it ascends correctly
+            current_sequence.append(col2[i])
+            current_values_col7.append(col7[i])
+            # If we reach 150, finalize this sequence
+            if len(current_sequence) == 150:
+                sequence_df = pd.DataFrame(current_values_col7, columns=[column_name])
+                sequences.append(sequence_df)
+                current_sequence = []
+                current_values_col7 = []
+
+    # Ensure the last sequence is saved if it reached 150 values
+    if len(current_sequence) == 150:
+        sequence_df = pd.DataFrame(current_values_col7, columns=[column_name])
+        sequences.append(sequence_df)
+
+    # Combine all sequences into a single DataFrame
+    combined_df = pd.concat(sequences, ignore_index=True)
+    return combined_df
+
 
 # Plotting the data
 def continuous_plot():
@@ -135,12 +199,6 @@ def bar_plot():
     # Show the plot
     plt.show()
 
-
-
-def main():
-    continuous_plot()
-    discrete_plot()
-    bar_plot()
 
 if __name__ == "__main__":
     main()
