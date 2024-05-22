@@ -13,13 +13,14 @@ import joblib
 data_array = []
 arrays = []
 universal_quartiles = []
-test_arrays = []
+prediction_array = []
 
 
 def main():
-    global data_array, arrays, universal_quartiles, test_arrays
+    global data_array, arrays, universal_quartiles, prediction_array
 
     df = extract_data(6, 'Column7')
+    #df = extract_data(9, 'Column10')
 
     # This will display the first few rows of the DataFrame to check it's loaded correctly
     print(str(df.head()) + "\n -----------------")
@@ -31,31 +32,43 @@ def main():
     # Split the array into 10 parts
     arrays = np.array_split(data_array, len(data_array)/150)
 
-    amount_of_arrays = 6
+    sequences = 10
+    evaluate_array = []
+    number_of_bins = 4
 
-    for i in range(amount_of_arrays, len(arrays)):
+    for i in range(len(arrays), sequences, -1):
         array = arrays.pop()
-        test_arrays.append(array)
+        if i == sequences + 1:
+            prediction_array = array
+            evaluate_array = array
 
-    test_arrays = np.array(test_arrays)
-
+    prediction_array = np.array(prediction_array)
+    evaluate_array = np.array(evaluate_array)
 
     # Find the overall min and max values to determine universal quartile ranges
     overall_min = np.min(data_array)
     overall_max = np.max(data_array)
 
     # Determine the universal quartiles
-    universal_quartiles = np.linspace(overall_min, overall_max, 5)
+    universal_quartiles = np.linspace(overall_min, overall_max, number_of_bins + 1)
     print("Universal quartiles: " + str(universal_quartiles) + "\n -----------------") 
 
-    #continuous_plot()
-    #discrete_plot()
-    #bar_plot()
+    continuous_plot()
+    discrete_plot()
+    bar_plot()
 
-    #model = create_hmm()
-    model = load_model()
-    hmm_predict(model, test_arrays)
+    model = create_hmm()
+    #model = load_model()
+    hidden_states = hmm_predict(model, prediction_array)
     save_model(model)
+
+    print_model_parameters(model)
+
+    hidden_to_observations = generate_observations(model, hidden_states)
+    print("Predicted observations for the new sequence: " + str(hidden_to_observations) + "\n -----------------")
+
+    evaluate_array = discretize_data([evaluate_array], universal_quartiles)[0][0]
+    print("Actual observations for the new sequence: " + str(evaluate_array) + "\n -----------------")
 
 def create_hmm():
     discretized_sequences, labels = discretize_data(arrays, universal_quartiles)
@@ -64,27 +77,31 @@ def create_hmm():
     concatenated_sequences = np.concatenate(discretized_sequences).reshape(-1, 1)
     
     # Train HMM
-    for _ in range(2):
-        model = hmm.CategoricalHMM(n_components=3, n_iter=1000)
-        model.fit(concatenated_sequences)
+    model = hmm.CategoricalHMM(n_components=3, n_iter=1000)
+    model.fit(concatenated_sequences)
 
-        # Print model parameters
-        print_model_parameters(model)
     return model
 
-def save_model(model, filename='hmm_model.pkl'):
+def save_model(model, filename='hmm_model4.pkl'):
     joblib.dump(model, filename)
     print(f"Model saved to {filename}")
 
-def load_model(filename='hmm_model.pkl'):
+def load_model(filename='hmm_model4.pkl'):
     model = joblib.load(filename)
     print(f"Model loaded from {filename}")
     return model
 
+def generate_observations(model, hidden_states):
+    observations = []
+    for state in hidden_states:
+        emission_probabilities = model.emissionprob_[state]
+        observation = np.argmax(emission_probabilities)
+        observations.append(observation)
+    return observations
 
-def hmm_predict(model, test_arrays):
+def hmm_predict(model, prediction_array):
     # Discretize the test arrays
-    new_discretized_sequence, _ = discretize_data([test_arrays], universal_quartiles)
+    new_discretized_sequence, _ = discretize_data([prediction_array], universal_quartiles)
     new_concatenated_sequence = np.concatenate(new_discretized_sequence).reshape(-1, 1)
     
     # Predict the hidden states for the new sequence
@@ -98,6 +115,7 @@ def hmm_predict(model, test_arrays):
     print(new_discretized_sequence)
     print("\nPredicted states for the new sequence:")
     print(predicted_states)
+    return predicted_states
 
 
 def discretize_data(arrays, universal_quartiles):
